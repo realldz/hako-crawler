@@ -1,0 +1,5 @@
+data/
+result/
+input/
+books.json
+__pycache__/
