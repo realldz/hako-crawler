@@ -45,6 +45,27 @@ def parse_runs(elem):
     return runs
 
 
+def parse_metadata_description(description_html):
+    """
+    Parse HTML content in metadata description and convert it to structured runs format
+    """
+    if not description_html or not isinstance(description_html, str):
+        return []
+
+    # Create a temporary wrapper to parse the HTML content using the existing parse_runs function
+    temp_wrapper = f"<div>{description_html}</div>"
+    soup = BeautifulSoup(temp_wrapper, "html.parser")
+
+    # Get the wrapper div and parse its contents using the existing parse_runs function
+    wrapper_div = soup.find("div")
+    if wrapper_div:
+        # Use the existing parse_runs logic by treating the content as if it were a paragraph
+        return parse_runs(wrapper_div)
+
+    # Fallback if parsing fails
+    return [{"text": description_html}] if description_html.strip() else []
+
+
 def parse_paragraph(p):
     text = p.get_text(strip=True)
     has_strong = p.find("strong") is not None
@@ -148,6 +169,54 @@ def convert_volume(book_name, volume_path, output_dir):
 
 
 # =============================
+# 5. CONVERT METADATA
+# =============================
+def convert_metadata(book_path, output_dir):
+    metadata_path = os.path.join(book_path, "metadata.json")
+
+    if not os.path.exists(metadata_path):
+        print(f"No metadata.json found in {book_path}, skipping metadata conversion")
+        return
+
+    with open(metadata_path, "r", encoding="utf-8") as f:
+        metadata = json.load(f)
+
+    # Parse the summary/description field which may contain HTML
+    original_summary = metadata.get("summary", "")
+    if original_summary:
+        # Convert HTML in summary to structured runs format
+        parsed_runs = parse_metadata_description(original_summary)
+        # Store both the original and parsed versions
+        converted_metadata = {
+            "novel_name": metadata.get("novel_name", ""),
+            "author": metadata.get("author", ""),
+            "tags": metadata.get("tags", []),
+            "summary": parsed_runs,  # This is now a list of runs instead of raw HTML
+            "summary_raw": original_summary,  # Keep the original as backup
+            "cover_image_local": metadata.get("cover_image_local", ""),
+            "url": metadata.get("url", ""),
+            "volumes": metadata.get("volumes", []),
+        }
+    else:
+        # If no summary, just convert the metadata as is
+        converted_metadata = {
+            "novel_name": metadata.get("novel_name", ""),
+            "author": metadata.get("author", ""),
+            "tags": metadata.get("tags", []),
+            "summary": [],
+            "cover_image_local": metadata.get("cover_image_local", ""),
+            "url": metadata.get("url", ""),
+            "volumes": metadata.get("volumes", []),
+        }
+
+    out_file = os.path.join(output_dir, "metadata.json")
+    with open(out_file, "w", encoding="utf-8") as f:
+        json.dump(converted_metadata, f, indent=2, ensure_ascii=False)
+
+    print(f"✔ Converted metadata → {out_file}")
+
+
+# =============================
 # 5. CONVERT BOOK
 # =============================
 def convert_book(book_path):
@@ -157,6 +226,10 @@ def convert_book(book_path):
 
     print(f"\n=== PROCESSING BOOK: {book_name} ===")
 
+    # Convert metadata first
+    convert_metadata(book_path, out_dir)
+
+    # Then convert volumes
     for filename in os.listdir(book_path):
         if not filename.lower().endswith(".json"):
             continue
