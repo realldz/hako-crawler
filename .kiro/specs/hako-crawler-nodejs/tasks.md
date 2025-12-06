@@ -277,10 +277,12 @@
     - Configure exports for module usage (already configured)
     - Add scripts for build, test, lint (already configured)
     - _Requirements: 1.1, 1.2, 1.3_
-  - [ ] 15.2 Create README documentation
+  - [x] 15.2 Create README documentation
+
     - Document CLI usage
     - Document module API with examples
     - _Requirements: 1.1_
 
-- [ ] 16. Final Checkpoint - Ensure all tests pass
+- [x] 16. Final Checkpoint - Ensure all tests pass
+
   - Ensure all tests pass, ask the user if questions arise.

@@ -1,38 +1,163 @@
 # hako-crawler
 
-A Python-based tool to download light novels from Hako (docln.net, ln.hako.vn) and convert them into EPUB format for offline reading.
+A Node.js/Bun tool to download light novels from Hako websites (docln.net, ln.hako.vn, docln.sbs) and convert them into EPUB format for offline reading.
 
 ## Features
 
-- **Interactive Downloader**: Guides you through selecting a novel and choosing which volumes to download.
-- **EPUB Generation**: Converts the downloaded content into well-formatted EPUB files.
+- **Dual Mode**: Use as CLI application or import as a module in your projects
+- **Interactive CLI**: Guides you through selecting novels and volumes to download
+- **EPUB Generation**: Converts downloaded content into well-formatted EPUB 3.0 files
 - **Flexible Build Options**:
-  - **Merged EPUB**: Combine all selected volumes into a single, comprehensive EPUB file.
-  - **Separate EPUBs**: Create an individual EPUB file for each volume.
-- **Smart Caching**: Saves downloaded chapter data locally. It intelligently re-downloads only if the cached data is missing or incomplete, saving time and bandwidth.
-- **Image and Footnote Handling**: Downloads and embeds images within the chapters and correctly processes footnotes for a clean reading experience.
-- **Resilient Networking**: Automatically retries downloads and cycles through available domains to handle network errors and site changes gracefully.
+  - **Merged EPUB**: Combine all volumes into a single file
+  - **Separate EPUBs**: Create individual files for each volume
+  - **Image Compression**: Optional JPEG compression for smaller file sizes
+- **Smart Caching**: Saves downloaded chapters locally, re-downloads only if data is missing or incomplete
+- **Image & Footnote Handling**: Downloads and embeds images, processes footnotes for clean reading
+- **EPUB Deconstruction**: Extract content from existing EPUBs for editing and rebuilding
+- **Resilient Networking**: Automatic retries with exponential backoff and domain rotation
 
-## Usage
+## Installation
 
-1. **Install dependencies:**
+```bash
+# Using bun (recommended)
+bun install
 
-   ```bash
-   pip install -r requirements.txt
-   ```
+# Using npm
+npm install
+```
 
-2. **Run the script:**
+## CLI Usage
 
-   ```bash
-   python hako_crawler.py
-   ```
+### Run directly with Bun
 
-   Or provide a URL directly:
+```bash
+# Interactive mode
+bun run dev
 
-   ```bash
-   python hako_crawler.py "docln.sbs url"
-   ```
+# With URL argument
+bun run dev "https://docln.net/truyen/12345"
+```
 
-3. **Follow the on-screen prompts** to select an action (Download, Build, or Full Process) and choose the desired volumes.
+### Build and run
 
-The script will create a `saved_data` directory to store the downloaded content and a `result` directory for the final EPUB files.
+```bash
+# Build the project
+bun run build
+
+# Run the CLI
+bun run start
+```
+
+### Available Actions
+
+1. **Download (Create JSONs)** - Download novel chapters and save as JSON
+2. **Build EPUB (From JSONs)** - Generate EPUB files from downloaded data
+3. **Deconstruct EPUB** - Extract content from existing EPUB files
+4. **Full Process** - Download and build EPUB in one step
+5. **Batch Build** - Build EPUBs for all novels in books.json
+
+## Module API
+
+Use hako-crawler as a library in your Node.js/Bun projects:
+
+```typescript
+import {
+  parseNovel,
+  downloadVolume,
+  buildEpub,
+  deconstructEpub,
+} from 'hako-crawler';
+
+// Parse novel information
+const result = await parseNovel('https://docln.net/truyen/12345');
+if (result.success) {
+  console.log(result.data.name);
+  console.log(`Volumes: ${result.data.volumes.length}`);
+}
+
+// Download a specific volume
+await downloadVolume(result.data, result.data.volumes[0], {
+  onProgress: (current, total) => console.log(`${current}/${total}`),
+});
+
+// Build EPUB
+const epubPaths = await buildEpub('./data/my-novel', {
+  compressImages: true,
+  mode: 'merged', // or 'separate'
+});
+
+// Deconstruct an existing EPUB
+await deconstructEpub('./input/novel.epub', {
+  outputDir: './data',
+});
+```
+
+### Exported Functions
+
+| Function                                  | Description                          |
+| ----------------------------------------- | ------------------------------------ |
+| `parseNovel(url)`                         | Parse novel metadata from a Hako URL |
+| `downloadVolume(novel, volume, options?)` | Download a specific volume           |
+| `downloadNovel(novel, options?)`          | Download all volumes                 |
+| `buildEpub(dataPath, options)`            | Generate EPUB files                  |
+| `deconstructEpub(epubPath, options?)`     | Extract content from EPUB            |
+
+### Exported Classes
+
+| Class               | Description                                |
+| ------------------- | ------------------------------------------ |
+| `NetworkManager`    | HTTP client with retry and domain rotation |
+| `NovelParser`       | HTML parser for Hako pages                 |
+| `NovelDownloader`   | Chapter and image downloader               |
+| `EpubBuilder`       | EPUB file generator                        |
+| `EpubDeconstructor` | EPUB content extractor                     |
+| `ContentProcessor`  | HTML cleaning and footnote processing      |
+
+### Utility Functions
+
+| Function                 | Description                  |
+| ------------------------ | ---------------------------- |
+| `serializeNovel(novel)`  | Serialize LightNovel to JSON |
+| `deserializeNovel(json)` | Parse JSON to LightNovel     |
+| `readBooksList()`        | Read books.json              |
+| `addBookToList(name)`    | Add book to books.json       |
+
+## Directory Structure
+
+```
+project/
+├── data/                    # Downloaded novel data
+│   └── <novel-name>/
+│       ├── metadata.json
+│       ├── <volume>.json
+│       └── images/
+├── result/                  # Generated EPUB files
+│   ├── <Novel_Full>.epub    # Merged + Original
+│   └── <Novel>/
+│       ├── compressed/
+│       └── original/
+├── input/                   # EPUBs for deconstruction
+└── books.json               # List of downloaded novels
+```
+
+## Development
+
+```bash
+# Run tests
+bun run test
+
+# Type check
+bun run lint
+
+# Build
+bun run build
+```
+
+## Requirements
+
+- Bun >= 1.0 or Node.js >= 18
+- TypeScript 5.x
+
+## License
+
+MIT
