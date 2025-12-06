@@ -1,254 +1,193 @@
 import os
 import json
+import shutil  # <--- Thêm thư viện này
 from bs4 import BeautifulSoup, NavigableString
 
-ROOT = "data"
-OUT_ROOT = "output"
+ROOT_DATA = "data"
+OUTPUT_DIR = "target_dir"
 
 
-# =============================
-# 0. PARSED RUNS FROM PARAGRAPH
-# =============================
-def parse_runs(elem):
-    runs = []
+# ... (Giữ nguyên class ContentParser y hệt như cũ) ...
+class ContentParser:
+    def __init__(self):
+        self.footnotes = []
+        self.footnote_map = {}
 
-    def add(text, bold=False, italic=False, fid=None):
-        if text.strip():
-            run_data = {"text": text}
-            if bold:
-                run_data["isBold"] = True
-            if italic:
-                run_data["isItalic"] = True
-            if fid:
-                run_data["footnoteId"] = fid
+    def parse_runs(self, element):
+        # ... (Giữ nguyên logic parse_runs cũ) ...
+        runs = []
 
-            runs.append(run_data)
+        def process_node(node, style={}):
+            if isinstance(node, NavigableString):
+                text = str(node)
+                if text:
+                    run = {"text": text}
+                    if style.get("bold"):
+                        run["isBold"] = True
+                    if style.get("italic"):
+                        run["isItalic"] = True
+                    if style.get("footnoteId"):
+                        run["footnoteId"] = style["footnoteId"]
+                    runs.append(run)
+                return
+            if node.name == "br":
+                runs.append({"text": "\n"})
+                return
+            current_style = style.copy()
+            if node.name in ["strong", "b"]:
+                current_style["bold"] = True
+            if node.name in ["em", "i"]:
+                current_style["italic"] = True
+            if node.name == "a" and node.get("epub:type") == "noteref":
+                href = node.get("href", "").replace("#", "")
+                if href in self.footnote_map:
+                    current_style["footnoteId"] = self.footnote_map[href]
+            for child in node.children:
+                process_node(child, current_style)
 
-    for child in elem.children:
-        if isinstance(child, NavigableString):
-            add(str(child))
+        process_node(element)
+        return runs
 
-        elif child.name in ["strong", "b"]:
-            add(child.get_text(), bold=True)
+    def extract_footnotes_from_html(self, soup):
+        # ... (Giữ nguyên logic cũ) ...
+        self.footnotes = []
+        self.footnote_map = {}
+        aside_nodes = soup.find_all("aside", {"epub:type": "footnote"})
+        for aside in aside_nodes:
+            html_id = aside.get("id")
+            note_segments = []
+            for child in aside.children:
+                if child.name in ["p", "div"]:
+                    note_segments.append(
+                        {"$type": "Text", "runs": self.parse_runs(child)}
+                    )
+            self.footnotes.append(
+                {"$type": "Footnote", "initialId": html_id, "segments": note_segments}
+            )
+            self.footnote_map[html_id] = html_id
+            aside.decompose()
 
-        elif child.name in ["em", "i"]:
-            add(child.get_text(), italic=True)
-
-        # --- FOOTNOTE REF (rare inside note) ---
-        elif child.name == "a" and child.get("epub:type") == "noteref":
-            fid = child.get("href", "").replace("#", "")
-            add(child.get_text(), fid=fid)
-
-        else:
-            add(child.get_text())
-
-    return runs
-
-
-def parse_metadata_description(description_html):
-    """
-    Parse HTML content in metadata description and convert it to structured runs format
-    """
-    if not description_html or not isinstance(description_html, str):
-        return []
-
-    # Create a temporary wrapper to parse the HTML content using the existing parse_runs function
-    temp_wrapper = f"<div>{description_html}</div>"
-    soup = BeautifulSoup(temp_wrapper, "html.parser")
-
-    # Get the wrapper div and parse its contents using the existing parse_runs function
-    wrapper_div = soup.find("div")
-    if wrapper_div:
-        # Use the existing parse_runs logic by treating the content as if it were a paragraph
-        return parse_runs(wrapper_div)
-
-    # Fallback if parsing fails
-    return [{"text": description_html}] if description_html.strip() else []
-
-
-def parse_paragraph(p):
-    text = p.get_text(strip=True)
-    has_strong = p.find("strong") is not None
-
-    if has_strong and len(p.contents) == 1:
-        return {"$type": "Heading", "level": 2, "content": text}
-
-    return {"$type": "Text", "runs": parse_runs(p)}
-
-
-def parse_image(img):
-    src = img.get("src")
-    filename = os.path.basename(src)
-
-    return {"$type": "Image", "assetFilename": filename, "caption": None}
-
-
-# =============================
-# 1. PARSE FOOTNOTE INTO SEGMENTS
-# =============================
-def parse_footnote_segments(aside):
-    segments = []
-    for elem in aside.children:
-        if elem.name == "p":
-            segments.append(parse_paragraph(elem))
-        elif elem.name == "img":
-            segments.append(parse_image(elem))
-    return segments
-
-
-# =============================
-# 2. EXTRACT FOOTNOTES (NOW PARSED)
-# =============================
-def extract_footnotes(html):
-    soup = BeautifulSoup(html, "html.parser")
-    notes = {}
-
-    for aside in soup.find_all("aside", {"epub:type": "footnote"}):
-        fid = aside.get("id")
-        segments = parse_footnote_segments(aside)
-
-        notes[fid] = {"$type": "Footnote", "segments": segments}
-
-    return notes
+    def parse(self, html_content):
+        # ... (Giữ nguyên logic cũ) ...
+        if not html_content:
+            return [], []
+        soup = BeautifulSoup(html_content, "html.parser")
+        self.extract_footnotes_from_html(soup)
+        segments = []
+        container = soup.find(id="chapter-content") or soup.body or soup
+        for elem in container.children:
+            if isinstance(elem, NavigableString):
+                text = str(elem).strip()
+                if text:
+                    segments.append({"$type": "Text", "runs": [{"text": text}]})
+                continue
+            if elem.name == "img":
+                segments.append(
+                    {"$type": "Image", "assetKey": elem.get("src"), "caption": None}
+                )
+                continue
+            if elem.name in ["p", "div", "blockquote"]:
+                img = elem.find("img")
+                if img and not elem.get_text(strip=True):
+                    segments.append(
+                        {"$type": "Image", "assetKey": img.get("src"), "caption": None}
+                    )
+                else:
+                    runs = self.parse_runs(elem)
+                    if runs:
+                        segments.append({"$type": "Text", "runs": runs})
+        return segments, self.footnotes
 
 
-# =============================
-# 3. CONVERT CHAPTER
-# =============================
-def convert_chapter(chapter):
-    html = chapter["content"]
-    soup = BeautifulSoup(html, "html.parser")
-
-    container = soup.find(id="chapter-content")
-
-    # 🌟 Now footnotes are parsed segments instead of raw HTML
-    footnotes = extract_footnotes(html)
-
-    segments = []
-    for elem in container.children:
-        if elem.name == "p":
-            img = elem.find("img")
-            if img:
-                segments.append(parse_image(img))
-            else:
-                segments.append(parse_paragraph(elem))
-
-        elif elem.name == "img":
-            segments.append(parse_image(elem))
-
-    out = {
-        "title": chapter["title"],
-        "order": chapter.get("index", 0),
-        "footnotes": footnotes,  # 🌟 new cleaned structured format
-        "segments": segments,
-    }
-
-    return out
+# ... (Hết phần Parser) ...
 
 
-# =============================
-# 4. CONVERT VOLUME
-# =============================
-def convert_volume(book_name, volume_path, output_dir):
-    with open(volume_path, "r", encoding="utf-8") as f:
-        vol = json.load(f)
+def convert_book(book_folder):
+    src_path = os.path.join(ROOT_DATA, book_folder)
+    dist_path = os.path.join(OUTPUT_DIR, book_folder)
 
-    chapters = vol.get("chapters", [])
-    vol_name = vol.get("volume_name") or os.path.basename(volume_path)
+    # Tạo lại folder đích sạch sẽ
+    if os.path.exists(dist_path):
+        shutil.rmtree(dist_path)
+    os.makedirs(dist_path, exist_ok=True)
 
-    for chap in chapters:
-        converted = convert_chapter(chap)
+    print(f"Converting: {book_folder}...")
 
-        out_name = f"{book_name}_vol_{vol_name}_chap_{chap.get('index', 0)}.json"
-        out_file = os.path.join(output_dir, out_name)
+    # --- 1. COPY ASSETS (Logic Mới) ---
+    src_images = os.path.join(src_path, "images")
+    dist_images = os.path.join(dist_path, "images")
 
-        with open(out_file, "w", encoding="utf-8") as f:
-            json.dump(converted, f, indent=2, ensure_ascii=False)
+    if os.path.exists(src_images):
+        print(f"   -> Copying images to bundle...")
+        shutil.copytree(src_images, dist_images)
+    # ----------------------------------
 
-        print(f"✔ Converted chapter → {out_file}")
-
-
-# =============================
-# 5. CONVERT METADATA
-# =============================
-def convert_metadata(book_path, output_dir):
-    metadata_path = os.path.join(book_path, "metadata.json")
-
-    if not os.path.exists(metadata_path):
-        print(f"No metadata.json found in {book_path}, skipping metadata conversion")
+    try:
+        with open(os.path.join(src_path, "metadata.json"), "r", encoding="utf-8") as f:
+            old_meta = json.load(f)
+    except FileNotFoundError:
+        print(" -> Skip: No metadata.json")
         return
 
-    with open(metadata_path, "r", encoding="utf-8") as f:
-        metadata = json.load(f)
+    parser = ContentParser()
+    desc_segments, _ = parser.parse(old_meta.get("summary", ""))
 
-    # Parse the summary/description field which may contain HTML
-    original_summary = metadata.get("summary", "")
-    if original_summary:
-        # Convert HTML in summary to structured runs format
-        parsed_runs = parse_metadata_description(original_summary)
-        # Store both the original and parsed versions
-        converted_metadata = {
-            "novel_name": metadata.get("novel_name", ""),
-            "author": metadata.get("author", ""),
-            "tags": metadata.get("tags", []),
-            "summary": parsed_runs,  # This is now a list of runs instead of raw HTML
-            "summary_raw": original_summary,  # Keep the original as backup
-            "cover_image_local": metadata.get("cover_image_local", ""),
-            "url": metadata.get("url", ""),
-            "volumes": metadata.get("volumes", []),
-        }
-    else:
-        # If no summary, just convert the metadata as is
-        converted_metadata = {
-            "novel_name": metadata.get("novel_name", ""),
-            "author": metadata.get("author", ""),
-            "tags": metadata.get("tags", []),
-            "summary": [],
-            "cover_image_local": metadata.get("cover_image_local", ""),
-            "url": metadata.get("url", ""),
-            "volumes": metadata.get("volumes", []),
-        }
+    new_meta = {
+        "title": old_meta["novel_name"],
+        "metadata": {
+            "authors": [old_meta.get("author", "Unknown")],
+            "tags": old_meta.get("tags", []),
+            "description": desc_segments,
+            "coverImage": old_meta.get("cover_image_local", ""),
+        },
+        "volumes": [],
+        # QUAN TRỌNG: Đánh dấu asset nằm ngay tại folder hiện tại
+        "_assetsRoot": ".",
+    }
 
-    out_file = os.path.join(output_dir, "metadata.json")
-    with open(out_file, "w", encoding="utf-8") as f:
-        json.dump(converted_metadata, f, indent=2, ensure_ascii=False)
+    for vol_info in old_meta.get("volumes", []):
+        vol_filename = vol_info.get("filename")
+        vol_file_path = os.path.join(src_path, vol_filename)
 
-    print(f"✔ Converted metadata → {out_file}")
-
-
-# =============================
-# 5. CONVERT BOOK
-# =============================
-def convert_book(book_path):
-    book_name = os.path.basename(book_path)
-    out_dir = os.path.join(OUT_ROOT, book_name)
-    os.makedirs(out_dir, exist_ok=True)
-
-    print(f"\n=== PROCESSING BOOK: {book_name} ===")
-
-    # Convert metadata first
-    convert_metadata(book_path, out_dir)
-
-    # Then convert volumes
-    for filename in os.listdir(book_path):
-        if not filename.lower().endswith(".json"):
-            continue
-        if filename == "metadata.json":
+        if not os.path.exists(vol_file_path):
             continue
 
-        fullpath = os.path.join(book_path, filename)
-        convert_volume(book_name, fullpath, out_dir)
+        with open(vol_file_path, "r", encoding="utf-8") as f:
+            old_vol = json.load(f)
 
+        new_chapters = []
+        for chap in old_vol.get("chapters", []):
+            c_parser = ContentParser()
+            segments, footnotes = c_parser.parse(chap["content"])
+            new_chapters.append(
+                {
+                    "title": chap["title"],
+                    "order": chap.get("index", 0),
+                    "footnotes": footnotes,
+                    "content": segments,
+                }
+            )
 
-# =============================
-# 6. ENTRY POINT
-# =============================
-def convert_all():
-    for name in os.listdir(ROOT):
-        path = os.path.join(ROOT, name)
-        if os.path.isdir(path):
-            convert_book(path)
+        new_meta["volumes"].append(
+            {
+                "title": old_vol["volume_name"],
+                "order": vol_info.get("order", 0),
+                "chapters": new_chapters,
+            }
+        )
+
+    with open(os.path.join(dist_path, "bundle.json"), "w", encoding="utf-8") as f:
+        json.dump(new_meta, f, ensure_ascii=False, indent=2)
+
+    print(f" -> Done. Bundle ready at: {dist_path}")
 
 
 if __name__ == "__main__":
-    convert_all()
+    if not os.path.exists(OUTPUT_DIR):
+        os.makedirs(OUTPUT_DIR)
+    if os.path.exists(ROOT_DATA):
+        for book in os.listdir(ROOT_DATA):
+            if os.path.isdir(os.path.join(ROOT_DATA, book)):
+                convert_book(book)
+    else:
+        print(f"Folder {ROOT_DATA} not found.")
