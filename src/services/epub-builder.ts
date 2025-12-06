@@ -187,23 +187,41 @@ export class EpubBuilder {
             }
 
             // Compress to JPEG quality 75
-            const compressedBuffer = await sharp(imageBuffer)
-                .jpeg({ quality: 75 })
-                .toBuffer();
+            try {
+                const compressedBuffer = await sharp(imageBuffer)
+                    .jpeg({ quality: 75 })
+                    .toBuffer();
 
-            // Change extension to .jpg
-            const baseName = relPath.replace(/\.[^.]+$/, '');
-            const newPath = `${baseName}.jpg`;
+                // Change extension to .jpg
+                const baseName = relPath.replace(/\.[^.]+$/, '');
+                const newPath = `${baseName}.jpg`;
 
-            const result: ProcessedImage = {
-                data: compressedBuffer,
-                mimeType: 'image/jpeg',
-                newPath,
-            };
-            this.imageCache.set(relPath, result);
-            return result;
+                const result: ProcessedImage = {
+                    data: compressedBuffer,
+                    mimeType: 'image/jpeg',
+                    newPath,
+                };
+                this.imageCache.set(relPath, result);
+                return result;
+            } catch (sharpError) {
+                // If sharp fails (unsupported format), return original as-is
+                console.error(`\nFailed to compress image ${relPath}, using original:`, sharpError);
+                const ext = extname(relPath).toLowerCase();
+                let mimeType = 'image/jpeg';
+                if (ext === '.png') mimeType = 'image/png';
+                else if (ext === '.gif') mimeType = 'image/gif';
+                else if (ext === '.webp') mimeType = 'image/webp';
+
+                const result: ProcessedImage = {
+                    data: imageBuffer,
+                    mimeType,
+                    newPath: relPath,
+                };
+                this.imageCache.set(relPath, result);
+                return result;
+            }
         } catch (error) {
-            console.error(`Failed to process image ${relPath}:`, error);
+            console.error(`\nFailed to process image ${relPath}:`, error);
             return null;
         }
     }
@@ -211,6 +229,7 @@ export class EpubBuilder {
 
     /**
      * Create intro page with cover and metadata
+     * Uses base64 data URIs for images
      */
     private async makeIntroPage(volName: string = ''): Promise<{ content: string; coverData: Buffer | null }> {
         const meta = this.metadata!;
@@ -227,7 +246,10 @@ export class EpubBuilder {
             const processed = await this.processImage(meta.coverImageLocal);
             if (processed) {
                 coverData = processed.data;
-                coverHtml = `<div style="text-align:center; margin: 2em 0; page-break-after: always; break-after: page;"><img src="${processed.newPath}" alt="Cover"/></div>`;
+                // Convert to base64 data URI
+                const base64 = processed.data.toString('base64');
+                const dataUri = `data:${processed.mimeType};base64,${base64}`;
+                coverHtml = `<div style="text-align:center; margin: 2em 0; page-break-after: always; break-after: page;"><img src="${dataUri}" alt="Cover"/></div>`;
             }
         }
 
@@ -249,6 +271,7 @@ export class EpubBuilder {
 
     /**
      * Process chapter content and extract/update image references
+     * Converts images to base64 data URIs for epub-gen-memory compatibility
      */
     private async processChapterContent(content: string): Promise<{ html: string; images: ProcessedImage[] }> {
         const $ = cheerio.load(content, { xmlMode: false });
@@ -260,8 +283,14 @@ export class EpubBuilder {
             if (src) {
                 const processed = await this.processImage(src);
                 if (processed) {
-                    $(img).attr('src', processed.newPath);
+                    // Convert to base64 data URI for epub-gen-memory
+                    const base64 = processed.data.toString('base64');
+                    const dataUri = `data:${processed.mimeType};base64,${base64}`;
+                    $(img).attr('src', dataUri);
                     images.push(processed);
+                } else {
+                    // Remove image if processing failed
+                    $(img).remove();
                 }
             }
         }
@@ -311,7 +340,10 @@ export class EpubBuilder {
                 const processed = await this.processImage(volData.coverImageLocal);
                 if (processed) {
                     allImages.set(processed.newPath, processed);
-                    volHtmlContent += `<img src="${processed.newPath}" alt="Vol Cover" style="max-height: 50vh;"/>`;
+                    // Convert to base64 data URI
+                    const base64 = processed.data.toString('base64');
+                    const dataUri = `data:${processed.mimeType};base64,${base64}`;
+                    volHtmlContent += `<img src="${dataUri}" alt="Vol Cover" style="max-height: 50vh;"/>`;
                 }
             }
             volHtmlContent += `<h1>${this.escapeHtml(volData.volumeName)}</h1>`;
