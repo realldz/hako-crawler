@@ -34,7 +34,8 @@
     - Create src/utils/fs.ts with ensureDir, readJson, writeJson
     - _Requirements: 10.1, 10.2_
 
-  - [ ]\* 2.3 Write property test for formatFilename
+  - [x]\* 2.3 Write property test for formatFilename
+
     - **Property 8: Image Naming Convention**
     - **Validates: Requirements 4.6**
 
@@ -55,7 +56,8 @@
     - Handle external vs internal URLs
     - _Requirements: 3.3, 3.5, 3.6_
 
-  - [ ]\* 3.3 Write property tests for NetworkManager
+  - [x]\* 3.3 Write property tests for NetworkManager
+
     - **Property 4: Domain Classification Correctness**
     - **Property 5: Existing File Skip**
     - **Validates: Requirements 3.5, 3.6**
@@ -82,7 +84,8 @@
     - Handle missing elements gracefully
     - _Requirements: 2.4_
 
-  - [ ]\* 4.4 Write property tests for parser
+  - [x]\* 4.4 Write property tests for parser
+
     - **Property 1: Novel Data Serialization Round-Trip**
     - **Property 2: HTML Parsing Extracts All Volumes**
     - **Property 3: Invalid URL Returns Error**
@@ -109,7 +112,8 @@
     - Handle multiple footnote formats (Note:, [note1], etc.)
     - _Requirements: 5.1, 5.2, 5.3, 5.4_
 
-  - [ ]\* 6.3 Write property tests for ContentProcessor
+  - [x]\* 6.3 Write property tests for ContentProcessor
+
     - **Property 7: HTML Cleaning Removes Unwanted Elements**
     - **Property 9: Footnote Extraction Completeness**
     - **Property 10: Footnote ID Uniqueness**
@@ -138,7 +142,8 @@
     - Re-download invalid/missing chapters
     - _Requirements: 4.2, 4.3_
 
-  - [ ]\* 7.4 Write property tests for Downloader
+  - [x]\* 7.4 Write property tests for Downloader
+
     - **Property 6: Cache Validation Checks Images**
     - **Validates: Requirements 4.2, 4.3**
 
@@ -174,7 +179,8 @@
     - Create individual EPUB for single volume
     - Include volume-specific navigation
     - _Requirements: 6.3_
-  - [ ]\* 9.5 Write property tests for EpubBuilder
+  - [x]\* 9.5 Write property tests for EpubBuilder
+
     - **Property 11: EPUB Contains All Volumes (Merged)**
     - **Property 12: Separate EPUB Count**
     - **Property 13: Image Compression Mode**
@@ -196,7 +202,8 @@
     - Generate JSON files matching download format
     - _Requirements: 7.2, 7.4, 7.5_
 
-  - [ ]\* 10.3 Write property tests for EpubDeconstructor
+  - [x]\* 10.3 Write property tests for EpubDeconstructor
+
     - **Property 14: EPUB Deconstruction Extracts All Images**
     - **Property 15: Deconstruction Output Format Consistency**
     - **Validates: Requirements 7.2, 7.4**
@@ -215,7 +222,8 @@
     - Re-export serializeNovel, deserializeNovel utility functions
     - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 9.6_
 
-  - [ ]\* 12.2 Write property test for API exports
+  - [x]\* 12.2 Write property test for API exports
+
     - **Property 16: Metadata JSON Schema Compliance**
     - **Property 17: Books List Update**
     - **Validates: Requirements 10.3, 10.6**
