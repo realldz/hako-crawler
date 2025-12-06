@@ -2,19 +2,19 @@
 
 ## Introduction
 
-Chuyển đổi công cụ hako-crawler từ Python sang Node.js (Bun runtime) để tải light novel từ các trang Hako (docln.net, ln.hako.vn, docln.sbs) và chuyển đổi sang định dạng EPUB. Ứng dụng cần hỗ trợ cả hai chế độ: chạy trực tiếp từ CLI và sử dụng như một module trong các dự án khác.
+Convert the hako-crawler tool from Python to Node.js (Bun runtime) to download light novels from Hako websites (docln.net, ln.hako.vn, docln.sbs) and convert them to EPUB format. The application should support both modes: running directly from CLI and using as a module in other projects.
 
 ## Glossary
 
-- **Hako_Crawler**: Hệ thống chính thực hiện việc tải và chuyển đổi light novel
-- **Light_Novel**: Đối tượng chứa thông tin về một bộ truyện (tên, tác giả, volumes, chapters)
-- **Volume**: Một tập trong bộ truyện, chứa nhiều chapters
-- **Chapter**: Một chương trong volume, chứa nội dung HTML và hình ảnh
-- **EPUB**: Định dạng sách điện tử chuẩn
-- **CLI_Mode**: Chế độ chạy ứng dụng từ command line với giao diện tương tác
-- **Module_Mode**: Chế độ sử dụng như thư viện trong các dự án Node.js khác
-- **Metadata**: Thông tin mô tả về novel (tên, tác giả, tags, summary, cover)
-- **Smart_Cache**: Cơ chế lưu trữ dữ liệu đã tải để tránh tải lại
+- **Hako_Crawler**: The main system that performs downloading and converting light novels
+- **Light_Novel**: Object containing information about a novel series (name, author, volumes, chapters)
+- **Volume**: A volume in the novel series, containing multiple chapters
+- **Chapter**: A chapter within a volume, containing HTML content and images
+- **EPUB**: Standard e-book format
+- **CLI_Mode**: Application mode running from command line with interactive interface
+- **Module_Mode**: Mode for using as a library in other Node.js projects
+- **Metadata**: Descriptive information about the novel (name, author, tags, summary, cover)
+- **Smart_Cache**: Mechanism to store downloaded data to avoid re-downloading
 
 ## Requirements
 

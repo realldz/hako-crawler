@@ -2,7 +2,7 @@
 
 ## Overview
 
-Chuyển đổi hako-crawler từ Python sang Node.js/TypeScript sử dụng Bun runtime. Dự án được thiết kế theo kiến trúc modular, hỗ trợ cả CLI và programmatic API. Sử dụng các thư viện hiện đại của Node.js ecosystem để đảm bảo hiệu suất và khả năng bảo trì.
+Convert hako-crawler from Python to Node.js/TypeScript using Bun runtime. The project is designed with a modular architecture, supporting both CLI and programmatic API. It uses modern Node.js ecosystem libraries to ensure performance and maintainability.
 
 ## Architecture
 
