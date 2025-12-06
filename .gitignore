@@ -1,6 +1,42 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Data directories
 data/
 result/
 output/
 input/
+
+# Runtime files
 books.json
+
+# Python
 __pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test coverage
+coverage/
+
+# Environment
+.env
+.env.local

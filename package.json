@@ -1,0 +1,52 @@
+{
+    "name": "hako-crawler",
+    "version": "1.0.0",
+    "description": "Light novel crawler for Hako websites with EPUB generation",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "bin": {
+        "hako-crawler": "./dist/bin/cli.js"
+    },
+    "exports": {
+        ".": {
+            "import": "./dist/index.js",
+            "types": "./dist/index.d.ts"
+        }
+    },
+    "scripts": {
+        "build": "tsc",
+        "dev": "bun run src/bin/cli.ts",
+        "start": "bun run dist/bin/cli.js",
+        "test": "vitest --run",
+        "test:watch": "vitest",
+        "lint": "tsc --noEmit"
+    },
+    "keywords": [
+        "light-novel",
+        "crawler",
+        "epub",
+        "hako",
+        "docln"
+    ],
+    "author": "",
+    "license": "MIT",
+    "engines": {
+        "node": ">=18.0.0"
+    },
+    "dependencies": {
+        "@inquirer/prompts": "^8.0.2",
+        "chalk": "^5.6.2",
+        "cheerio": "^1.1.2",
+        "commander": "^14.0.2",
+        "epub-gen-memory": "^1.1.2",
+        "ora": "^9.0.0",
+        "sharp": "^0.34.5"
+    },
+    "devDependencies": {
+        "@types/node": "^24.10.1",
+        "fast-check": "^4.3.0",
+        "typescript": "^5.9.3",
+        "vitest": "^4.0.15"
+    }
+}
