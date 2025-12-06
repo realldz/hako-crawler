@@ -35,8 +35,11 @@ export async function readJson<T>(filePath: string): Promise<T> {
  * @param data - The data to serialize to JSON
  */
 export async function writeJson<T>(filePath: string, data: T): Promise<void> {
-    // Ensure parent directory exists
-    await ensureDir(dirname(filePath));
+    // Ensure parent directory exists (only if not root level)
+    const dir = dirname(filePath);
+    if (dir && dir !== '.' && dir !== '/') {
+        await ensureDir(dir);
+    }
     const content = JSON.stringify(data, null, 2);
     await writeFile(filePath, content, 'utf-8');
 }

@@ -108,7 +108,7 @@ export class NovelDownloader {
         const finalChapters: ChapterContent[] = [];
         const tasksToDownload: Array<{ index: number; chapter: Chapter }> = [];
 
-        console.log(`Processing Volume: ${volume.name}`);
+        // Note: Progress info is handled by the caller via onProgress callback
 
         let cachedCount = 0;
 
@@ -128,7 +128,7 @@ export class NovelDownloader {
             }
         }
 
-        console.log(`Cached: ${cachedCount} | To download: ${tasksToDownload.length}`);
+        // Cached info can be logged by caller if needed
 
         // Download chapters that need updating
         const total = tasksToDownload.length;
@@ -172,7 +172,7 @@ export class NovelDownloader {
         };
 
         await writeJson(jsonPath, volumeData);
-        console.log(`Saved: ${jsonPath}`);
+        // Saved info is handled by the caller
     }
 
 

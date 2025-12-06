@@ -187,13 +187,15 @@ export class Application {
             const volume = novel.volumes[idx];
             console.log(chalk.cyan(`\n📖 Downloading: ${volume.name}`));
 
-            const spinner = ora('Starting download...').start();
+            const spinner = ora('Downloading...').start();
+            let lastTotal = 0;
 
             await downloader.downloadVolume(volume, (current, total) => {
+                lastTotal = total;
                 spinner.text = `Downloading chapters: ${current}/${total}`;
             });
 
-            spinner.succeed(chalk.green(`Completed: ${volume.name}`));
+            spinner.succeed(chalk.green(`Downloaded ${lastTotal} chapters`));
         }
 
         // Update books list
