@@ -162,7 +162,7 @@
     - Preserve original format when compress disabled
     - _Requirements: 6.4, 6.5, 6.6_
 
-  - [ ] 9.3 Implement buildMerged method
+  - [x] 9.3 Implement buildMerged method
 
     - Combine multiple volumes into single EPUB
     - Generate hierarchical table of contents
@@ -170,7 +170,7 @@
 
     - _Requirements: 6.2, 6.7_
 
-  - [ ] 9.4 Implement buildVolume method
+  - [x] 9.4 Implement buildVolume method
     - Create individual EPUB for single volume
     - Include volume-specific navigation
     - _Requirements: 6.3_
@@ -180,34 +180,39 @@
     - **Property 13: Image Compression Mode**
     - **Validates: Requirements 6.2, 6.3, 6.5, 6.6**
 
-- [ ] 10. EPUB Deconstructor
+- [x] 10. EPUB Deconstructor
 
-  - [ ] 10.1 Implement EpubDeconstructor class
+  - [x] 10.1 Implement EpubDeconstructor class
+
     - Create src/services/epub-deconstructor.ts
     - Read EPUB file and extract metadata
     - Parse table of contents for volume/chapter structure
     - _Requirements: 7.1, 7.3_
-  - [ ] 10.2 Implement content extraction
+
+  - [x] 10.2 Implement content extraction
+
     - Extract and save all images to images folder
     - Process chapter content with HTML cleanup
     - Generate JSON files matching download format
     - _Requirements: 7.2, 7.4, 7.5_
+
   - [ ]\* 10.3 Write property tests for EpubDeconstructor
     - **Property 14: EPUB Deconstruction Extracts All Images**
     - **Property 15: Deconstruction Output Format Consistency**
     - **Validates: Requirements 7.2, 7.4**
 
-- [ ] 11. Checkpoint - Ensure all tests pass
+- [x] 11. Checkpoint - Ensure all tests pass
 
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 12. Module API
 
   - [ ] 12.1 Create public API entry point
-    - Create src/index.ts with all exports
+    - Update src/index.ts with all exports
     - Export parseNovel, downloadVolume, buildEpub, deconstructEpub functions
-    - Re-export types and utility classes
-    - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5_
+    - Re-export NetworkManager, NovelParser, EpubBuilder, EpubDeconstructor classes
+    - Re-export serializeNovel, deserializeNovel utility functions
+    - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 9.6_
   - [ ]\* 12.2 Write property test for API exports
     - **Property 16: Metadata JSON Schema Compliance**
     - **Property 17: Books List Update**
@@ -216,15 +221,18 @@
 - [ ] 13. CLI Application
 
   - [ ] 13.1 Implement CLI entry point
-    - Create bin/cli.ts with commander setup
+    - Create src/bin/cli.ts with commander setup
     - Accept URL as optional argument
+    - Wire up to Application class
     - _Requirements: 8.6_
   - [ ] 13.2 Implement Application class
     - Create src/cli/app.ts
     - Implement main menu with @inquirer/prompts
-    - Handle action selection (Download, Build, Deconstruct, Full Process, Batch)
+    - Handle action selection (Download, Build EPUB, Deconstruct, Full Process, Batch)
+    - Use chalk for colored output and ora for spinners
     - _Requirements: 8.1_
   - [ ] 13.3 Implement download workflow
+    - Prompt for novel URL if not provided
     - Volume selection with checkboxes
     - Progress display with ora spinner
     - _Requirements: 8.2, 8.5_
@@ -245,12 +253,12 @@
     - Maintain books.json file
     - _Requirements: 10.6_
 
-- [ ] 15. Final Integration & Polish
+- [x] 15. Final Integration & Polish
 
-  - [ ] 15.1 Configure package.json for publishing
-    - Set up bin entry for CLI
-    - Configure exports for module usage
-    - Add scripts for build, test, lint
+  - [x] 15.1 Configure package.json for publishing
+    - Set up bin entry for CLI (already configured: "hako-crawler": "./dist/bin/cli.js")
+    - Configure exports for module usage (already configured)
+    - Add scripts for build, test, lint (already configured)
     - _Requirements: 1.1, 1.2, 1.3_
   - [ ] 15.2 Create README documentation
     - Document CLI usage
