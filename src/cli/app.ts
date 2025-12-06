@@ -16,7 +16,8 @@ import { EpubBuilder } from '../services/epub-builder';
 import { EpubDeconstructor } from '../services/epub-deconstructor';
 import { PATHS } from '../config/constants';
 import { formatFilename } from '../utils/text';
-import { ensureDir, readJson, writeJson } from '../utils/fs';
+import { ensureDir } from '../utils/fs';
+import { readBooksList, addBookToList } from '../utils/books';
 import type { LightNovel } from '../types';
 
 /**
@@ -196,7 +197,7 @@ export class Application {
         }
 
         // Update books list
-        await this.addToBooksList(formatFilename(novel.name));
+        await addBookToList(formatFilename(novel.name));
 
         console.log(chalk.green(`\n✅ Download complete! Data saved to: ${saveDir}`));
     }
@@ -364,7 +365,7 @@ export class Application {
      * Handle batch build action
      */
     private async handleBatchBuild(): Promise<void> {
-        const booksList = await this.readBooksList();
+        const booksList = await readBooksList();
 
         if (booksList.length === 0) {
             console.log(chalk.yellow(`'${PATHS.BOOKS_FILE}' is empty. Nothing to build.`));
@@ -438,27 +439,4 @@ export class Application {
         }
     }
 
-    /**
-     * Read books list from books.json
-     */
-    private async readBooksList(): Promise<string[]> {
-        try {
-            const data = await readJson<string[]>(PATHS.BOOKS_FILE);
-            return Array.isArray(data) ? data : [];
-        } catch {
-            return [];
-        }
-    }
-
-    /**
-     * Add a book to the books list
-     */
-    private async addToBooksList(folderName: string): Promise<void> {
-        const booksList = await this.readBooksList();
-
-        if (!booksList.includes(folderName)) {
-            booksList.push(folderName);
-            await writeJson(PATHS.BOOKS_FILE, booksList);
-        }
-    }
 }

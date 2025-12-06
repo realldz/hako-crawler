@@ -30,6 +30,15 @@ export { EpubBuilder } from './services/epub-builder';
 export { EpubDeconstructor } from './services/epub-deconstructor';
 export { ContentProcessor } from './services/content-processor';
 
+// Re-export utility functions for books list management (Requirement 10.6)
+export {
+    readBooksList,
+    writeBooksList,
+    addBookToList,
+    removeBookFromList,
+    isBookInList,
+} from './utils/books';
+
 // Import for API functions
 import { join } from 'node:path';
 import { readdir } from 'node:fs/promises';

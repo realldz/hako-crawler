@@ -254,9 +254,10 @@
     - Interactive volume name cleaning
     - _Requirements: 7.1_
 
-- [ ] 14. Books List Management
+- [x] 14. Books List Management
 
-  - [ ] 14.1 Implement books list functions
+  - [x] 14.1 Implement books list functions
+
     - Create readBooksList, writeBooksList, addBookToList in src/utils/books.ts
     - Maintain books.json file
     - _Requirements: 10.6_
