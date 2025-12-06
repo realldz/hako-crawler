@@ -275,7 +275,7 @@ export class NovelDownloader {
                 index,
             };
         } catch (error) {
-            console.error(`Error processing chapter ${chapter.url}:`, error);
+            console.error(`\nError processing chapter ${chapter.url}:`, error);
             return null;
         }
     }

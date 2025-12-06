@@ -48,6 +48,8 @@ export class NetworkManager {
         const headers = { ...this.headers, ...options?.headers };
 
         let lastError: Error | null = null;
+        let rateLimitRetries = 0;
+        const maxRateLimitRetries = 5; // Extra retries for 429 errors
 
         for (let attempt = 0; attempt < NETWORK.MAX_RETRIES; attempt++) {
             try {
@@ -64,6 +66,20 @@ export class NetworkManager {
 
                 if (response.ok) {
                     return response;
+                }
+
+                // Handle rate limiting (429) with exponential backoff and extra retries
+                if (response.status === 429) {
+                    rateLimitRetries++;
+                    if (rateLimitRetries <= maxRateLimitRetries) {
+                        const waitTime = Math.min(30 * rateLimitRetries, 120); // 30s, 60s, 90s, 120s max
+                        console.log(`\nRate limited (429). Waiting ${waitTime}s before retry ${rateLimitRetries}/${maxRateLimitRetries}...`);
+                        await this.sleep(waitTime * 1000);
+                        attempt--; // Don't count 429 as a regular retry
+                        continue;
+                    }
+                    lastError = new Error(`HTTP 429: Rate limited after ${maxRateLimitRetries} retries`);
+                    break;
                 }
 
                 // If response is not ok, try domain rotation for internal URLs
@@ -228,7 +244,7 @@ export class NetworkManager {
      */
     private async applyAntiBan(): Promise<void> {
         if (this.requestCount > 0 && this.requestCount % NETWORK.REQUESTS_BEFORE_PAUSE === 0) {
-            console.log(`Anti-ban pause: waiting ${NETWORK.ANTI_BAN_PAUSE / 1000}s after ${this.requestCount} requests...`);
+            console.log(`\nAnti-ban pause: waiting ${NETWORK.ANTI_BAN_PAUSE / 1000}s after ${this.requestCount} requests...`);
             await this.sleep(NETWORK.ANTI_BAN_PAUSE);
         }
     }
