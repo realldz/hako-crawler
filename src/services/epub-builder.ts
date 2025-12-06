@@ -203,9 +203,9 @@ export class EpubBuilder {
                 };
                 this.imageCache.set(relPath, result);
                 return result;
-            } catch (sharpError) {
+            } catch {
                 // If sharp fails (unsupported format), return original as-is
-                console.error(`\nFailed to compress image ${relPath}, using original:`, sharpError);
+                console.warn(`\n⚠ Cannot compress ${relPath} (unsupported format), using original`);
                 const ext = extname(relPath).toLowerCase();
                 let mimeType = 'image/jpeg';
                 if (ext === '.png') mimeType = 'image/png';
