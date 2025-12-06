@@ -205,14 +205,16 @@
 
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 12. Module API
+- [x] 12. Module API
 
-  - [ ] 12.1 Create public API entry point
+  - [x] 12.1 Create public API entry point
+
     - Update src/index.ts with all exports
     - Export parseNovel, downloadVolume, buildEpub, deconstructEpub functions
     - Re-export NetworkManager, NovelParser, EpubBuilder, EpubDeconstructor classes
     - Re-export serializeNovel, deserializeNovel utility functions
     - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 9.6_
+
   - [ ]\* 12.2 Write property test for API exports
     - **Property 16: Metadata JSON Schema Compliance**
     - **Property 17: Books List Update**
