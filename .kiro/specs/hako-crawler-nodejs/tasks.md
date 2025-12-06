@@ -220,30 +220,36 @@
     - **Property 17: Books List Update**
     - **Validates: Requirements 10.3, 10.6**
 
-- [ ] 13. CLI Application
+- [x] 13. CLI Application
 
-  - [ ] 13.1 Implement CLI entry point
+  - [x] 13.1 Implement CLI entry point
+
     - Create src/bin/cli.ts with commander setup
     - Accept URL as optional argument
     - Wire up to Application class
     - _Requirements: 8.6_
-  - [ ] 13.2 Implement Application class
+
+  - [x] 13.2 Implement Application class
+
     - Create src/cli/app.ts
     - Implement main menu with @inquirer/prompts
     - Handle action selection (Download, Build EPUB, Deconstruct, Full Process, Batch)
     - Use chalk for colored output and ora for spinners
     - _Requirements: 8.1_
-  - [ ] 13.3 Implement download workflow
+
+  - [x] 13.3 Implement download workflow
     - Prompt for novel URL if not provided
     - Volume selection with checkboxes
     - Progress display with ora spinner
     - _Requirements: 8.2, 8.5_
-  - [ ] 13.4 Implement build workflow
+  - [x] 13.4 Implement build workflow
+
     - Mode selection (merged/separate)
     - Image quality selection (optimized/original)
     - Volume selection for building
     - _Requirements: 8.3, 8.4_
-  - [ ] 13.5 Implement deconstruct workflow
+
+  - [x] 13.5 Implement deconstruct workflow
     - List EPUB files from input directory
     - Interactive volume name cleaning
     - _Requirements: 7.1_
