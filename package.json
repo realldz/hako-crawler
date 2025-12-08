@@ -3,15 +3,15 @@
     "version": "1.0.0",
     "description": "Light novel crawler for Hako websites with EPUB generation",
     "type": "module",
-    "main": "./dist/index.js",
-    "types": "./dist/index.d.ts",
+    "main": "./dist/src/index.js",
+    "types": "./dist/src/index.d.ts",
     "bin": {
         "hako-crawler": "./dist/bin/cli.js"
     },
     "exports": {
         ".": {
-            "import": "./dist/index.js",
-            "types": "./dist/index.d.ts"
+            "import": "./dist/src/index.js",
+            "types": "./dist/src/index.d.ts"
         }
     },
     "files": [
