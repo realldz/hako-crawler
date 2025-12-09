@@ -18,19 +18,33 @@ import { PATHS } from '../config/constants';
 import { formatFilename } from '../utils/text';
 import { ensureDir } from '../utils/fs';
 import { readBooksList, addBookToList } from '../utils/books';
-import type { LightNovel } from '../types';
+import { sanitizeForDisplay } from '../utils/proxy';
+import type { LightNovel, ProxyInput } from '../types';
+
+/**
+ * CLI Application options
+ */
+interface AppOptions {
+    proxy?: ProxyInput;
+    verbose?: boolean;
+}
 
 /**
  * Main CLI Application class
  * Requirement: 8.1 - Interactive menu for action selection
+ * Proxy Requirement: 5.2, 5.3 - Pass proxy to operations and display in verbose
  */
 export class Application {
     private cliUrl?: string;
     private network: NetworkManager;
+    private proxy?: ProxyInput;
+    private verbose: boolean;
 
-    constructor(url?: string) {
+    constructor(url?: string, options?: AppOptions) {
         this.cliUrl = url;
-        this.network = new NetworkManager();
+        this.proxy = options?.proxy;
+        this.verbose = options?.verbose ?? false;
+        this.network = new NetworkManager({ proxy: this.proxy });
     }
 
     /**
@@ -38,6 +52,11 @@ export class Application {
      */
     async run(): Promise<void> {
         console.log(chalk.cyan('\n📚 Hako Crawler - Light Novel Downloader\n'));
+
+        // Display proxy info in verbose mode (Requirement 5.3)
+        if (this.verbose && this.proxy) {
+            this.displayProxyInfo();
+        }
 
         try {
             const action = await this.showMainMenu();
@@ -49,6 +68,21 @@ export class Application {
             }
             console.error(chalk.red('\nError:'), error);
         }
+    }
+
+    /**
+     * Display proxy information (sanitized, without credentials)
+     * Requirement: 5.3
+     */
+    private displayProxyInfo(): void {
+        if (!this.proxy) return;
+
+        const proxies = Array.isArray(this.proxy) ? this.proxy : [this.proxy];
+        console.log(chalk.gray(`🔒 Using ${proxies.length} proxy server(s):`));
+        for (const proxyUrl of proxies) {
+            console.log(chalk.gray(`   - ${sanitizeForDisplay(proxyUrl)}`));
+        }
+        console.log();
     }
 
     /**

@@ -1,7 +1,7 @@
 /**
  * Network Manager for hako-crawler
- * Handles HTTP requests with retry logic, domain rotation, and anti-ban measures
- * Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6
+ * Handles HTTP requests with retry logic, domain rotation, anti-ban measures, and proxy support
+ * Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, Proxy: 1.1, 2.1-2.3, 3.1-3.2, 6.1-6.3, 8.1-8.4
  */
 
 import { createWriteStream } from 'node:fs';
@@ -11,7 +11,26 @@ import { dirname } from 'node:path';
 
 import { DOMAINS, IMAGE_DOMAINS, HEADERS, NETWORK } from '../config/constants';
 import { ensureDir, fileExistsWithContent } from '../utils/fs';
-import type { FetchOptions } from '../types';
+import { ProxyPool } from './proxy-pool';
+import type { FetchOptions, NetworkOptions, ProxyConfig } from '../types';
+
+// Import proxy agents
+import { ProxyAgent } from 'undici';
+import { SocksProxyAgent } from 'socks-proxy-agent';
+
+/**
+ * Custom error class for proxy-related errors
+ */
+export class ProxyError extends Error {
+    constructor(
+        message: string,
+        public readonly proxyHost?: string,
+        public readonly proxyPort?: number
+    ) {
+        super(message);
+        this.name = 'ProxyError';
+    }
+}
 
 /**
  * NetworkManager handles all HTTP operations with built-in resilience features:
@@ -19,22 +38,182 @@ import type { FetchOptions } from '../types';
  * - Domain rotation for Hako domains
  * - Anti-ban pause every 100 requests
  * - Stream downloads for large files
+ * - Proxy support with round-robin and failover
  */
 export class NetworkManager {
     private requestCount: number = 0;
     private readonly domains: readonly string[];
     private readonly imageDomains: readonly string[];
     private readonly headers: Record<string, string>;
+    private readonly proxyPool: ProxyPool | null = null;
+    private readonly timeout: number;
 
-    constructor() {
+    /**
+     * Creates a new NetworkManager
+     * Requirements: Proxy 4.1
+     *
+     * @param options - Optional network configuration including proxy settings
+     */
+    constructor(options?: NetworkOptions) {
         this.domains = DOMAINS;
         this.imageDomains = IMAGE_DOMAINS;
         this.headers = { ...HEADERS };
+        this.timeout = options?.timeout ?? NETWORK.TIMEOUT;
+
+        // Initialize proxy pool if proxy is configured
+        if (options?.proxy) {
+            this.proxyPool = new ProxyPool(options.proxy);
+        }
+    }
+
+
+    /**
+     * Creates a fetch dispatcher for the given proxy configuration
+     * Requirements: Proxy 2.1, 2.2, 2.3, 3.1, 3.2
+     *
+     * @param proxy - The proxy configuration
+     * @returns A dispatcher for use with fetch
+     */
+    private createProxyDispatcher(proxy: ProxyConfig): ProxyAgent | SocksProxyAgent {
+        const proxyUrl = this.buildProxyUrl(proxy);
+
+        if (proxy.protocol === 'socks5') {
+            // Use socks-proxy-agent for SOCKS5
+            return new SocksProxyAgent(proxyUrl);
+        } else {
+            // Use undici ProxyAgent for HTTP/HTTPS
+            return new ProxyAgent(proxyUrl);
+        }
     }
 
     /**
+     * Builds a proxy URL from ProxyConfig
+     */
+    private buildProxyUrl(proxy: ProxyConfig): string {
+        let url = `${proxy.protocol}://`;
+        if (proxy.username) {
+            url += encodeURIComponent(proxy.username);
+            if (proxy.password) {
+                url += `:${encodeURIComponent(proxy.password)}`;
+            }
+            url += '@';
+        }
+        url += `${proxy.host}:${proxy.port}`;
+        return url;
+    }
+
+    /**
+     * Fetches a URL using a specific proxy
+     * Requirements: Proxy 1.1, 6.1, 6.2, 6.3
+     *
+     * @param url - The URL to fetch
+     * @param proxy - The proxy configuration to use
+     * @param headers - Request headers
+     * @param timeout - Request timeout
+     * @returns The fetch Response
+     */
+    private async fetchViaProxy(
+        url: string,
+        proxy: ProxyConfig,
+        headers: Record<string, string>,
+        timeout: number
+    ): Promise<Response> {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+        try {
+            const dispatcher = this.createProxyDispatcher(proxy);
+
+            // Use undici's fetch with dispatcher for proxy support
+            const { fetch: undiciFetch } = await import('undici');
+
+            const response = await undiciFetch(url, {
+                headers,
+                signal: controller.signal,
+                dispatcher: dispatcher as any,
+            });
+
+            clearTimeout(timeoutId);
+            this.requestCount++;
+
+            return response as unknown as Response;
+        } catch (error) {
+            clearTimeout(timeoutId);
+
+            const errorMessage = error instanceof Error ? error.message : String(error);
+
+            // Categorize proxy errors
+            if (errorMessage.includes('ECONNREFUSED') || errorMessage.includes('ENOTFOUND')) {
+                throw new ProxyError(
+                    `Proxy connection failed: ${proxy.host}:${proxy.port}`,
+                    proxy.host,
+                    proxy.port
+                );
+            }
+
+            if (errorMessage.includes('407') || errorMessage.includes('authentication')) {
+                throw new ProxyError(
+                    `Proxy authentication failed: ${proxy.host}:${proxy.port}`,
+                    proxy.host,
+                    proxy.port
+                );
+            }
+
+            if (errorMessage.includes('timeout') || errorMessage.includes('aborted')) {
+                throw new ProxyError(
+                    `Proxy connection timed out: ${proxy.host}:${proxy.port}`,
+                    proxy.host,
+                    proxy.port
+                );
+            }
+
+            throw error;
+        }
+    }
+
+    /**
+     * Fetches a URL with proxy failover support
+     * Requirements: Proxy 8.1, 8.2, 8.3, 8.4
+     *
+     * @param url - The URL to fetch
+     * @param headers - Request headers
+     * @param timeout - Request timeout
+     * @returns The fetch Response
+     */
+    private async fetchWithProxyFailover(
+        url: string,
+        headers: Record<string, string>,
+        timeout: number
+    ): Promise<Response> {
+        if (!this.proxyPool) {
+            throw new Error('No proxy pool configured');
+        }
+
+        const proxies = this.proxyPool.getAllProxies();
+        const errors: Error[] = [];
+
+        // Try each proxy in the pool
+        for (let i = 0; i < proxies.length; i++) {
+            const proxy = proxies[i]!;
+
+            try {
+                return await this.fetchViaProxy(url, proxy, headers, timeout);
+            } catch (error) {
+                errors.push(error instanceof Error ? error : new Error(String(error)));
+                // Continue to next proxy
+            }
+        }
+
+        // All proxies failed
+        throw new ProxyError(
+            `All proxies failed. Tried ${proxies.length} proxies. Last error: ${errors[errors.length - 1]?.message}`
+        );
+    }
+
+
+    /**
      * Fetches a URL with retry logic and exponential backoff
-     * Requirements: 3.1, 3.2
+     * Requirements: 3.1, 3.2, Proxy 1.1, 1.2
      *
      * @param url - The URL to fetch
      * @param options - Optional fetch configuration
@@ -44,46 +223,53 @@ export class NetworkManager {
     async fetchWithRetry(url: string, options?: FetchOptions): Promise<Response> {
         await this.applyAntiBan();
 
-        const timeout = options?.timeout ?? NETWORK.TIMEOUT;
+        const timeout = options?.timeout ?? this.timeout;
         const headers = { ...this.headers, ...options?.headers };
 
         let lastError: Error | null = null;
         let rateLimitRetries = 0;
-        const maxRateLimitRetries = 5; // Extra retries for 429 errors
+        const maxRateLimitRetries = 5;
 
         for (let attempt = 0; attempt < NETWORK.MAX_RETRIES; attempt++) {
             try {
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), timeout);
+                let response: Response;
 
-                const response = await fetch(url, {
-                    headers,
-                    signal: controller.signal,
-                });
+                // Use proxy if configured, otherwise direct fetch
+                if (this.proxyPool) {
+                    response = await this.fetchWithProxyFailover(url, headers, timeout);
+                } else {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-                clearTimeout(timeoutId);
-                this.requestCount++;
+                    response = await fetch(url, {
+                        headers,
+                        signal: controller.signal,
+                    });
+
+                    clearTimeout(timeoutId);
+                    this.requestCount++;
+                }
 
                 if (response.ok) {
                     return response;
                 }
 
-                // Handle rate limiting (429) with exponential backoff and extra retries
+                // Handle rate limiting (429)
                 if (response.status === 429) {
                     rateLimitRetries++;
                     if (rateLimitRetries <= maxRateLimitRetries) {
-                        const waitTime = Math.min(30 * rateLimitRetries, 120); // 30s, 60s, 90s, 120s max
+                        const waitTime = Math.min(30 * rateLimitRetries, 120);
                         console.log(`\nRate limited (429). Waiting ${waitTime}s before retry ${rateLimitRetries}/${maxRateLimitRetries}...`);
                         await this.sleep(waitTime * 1000);
-                        attempt--; // Don't count 429 as a regular retry
+                        attempt--;
                         continue;
                     }
                     lastError = new Error(`HTTP 429: Rate limited after ${maxRateLimitRetries} retries`);
                     break;
                 }
 
-                // If response is not ok, try domain rotation for internal URLs
-                if (this.isInternalDomain(url)) {
+                // Try domain rotation for internal URLs (only for non-proxy requests)
+                if (!this.proxyPool && this.isInternalDomain(url)) {
                     const rotatedResponse = await this.rotateDomainsAndRetry(url, headers, timeout);
                     if (rotatedResponse) {
                         return rotatedResponse;
@@ -94,8 +280,13 @@ export class NetworkManager {
             } catch (error) {
                 lastError = error instanceof Error ? error : new Error(String(error));
 
-                // Try domain rotation for internal URLs on network errors
-                if (this.isInternalDomain(url)) {
+                // For proxy errors, don't retry with domain rotation
+                if (error instanceof ProxyError) {
+                    throw error;
+                }
+
+                // Try domain rotation for internal URLs on network errors (non-proxy only)
+                if (!this.proxyPool && this.isInternalDomain(url)) {
                     const rotatedResponse = await this.rotateDomainsAndRetry(url, headers, timeout);
                     if (rotatedResponse) {
                         return rotatedResponse;
@@ -103,7 +294,7 @@ export class NetworkManager {
                 }
             }
 
-            // Exponential backoff: 1s, 2s, 4s
+            // Exponential backoff
             if (attempt < NETWORK.MAX_RETRIES - 1) {
                 const delay = Math.pow(2, attempt) * 1000;
                 await this.sleep(delay);
@@ -112,7 +303,6 @@ export class NetworkManager {
 
         throw lastError ?? new Error(`Failed to fetch ${url} after ${NETWORK.MAX_RETRIES} retries`);
     }
-
 
     /**
      * Downloads a file from URL to disk using streaming
@@ -124,22 +314,18 @@ export class NetworkManager {
      * @returns true if file exists or download succeeded, false on failure
      */
     async downloadToFile(url: string, savePath: string): Promise<boolean> {
-        // Skip if file already exists with content (Requirement 3.5)
         if (await fileExistsWithContent(savePath)) {
             return true;
         }
 
         try {
-            // Ensure directory exists
             await ensureDir(dirname(savePath));
-
             const response = await this.fetchWithRetry(url);
 
             if (!response.body) {
                 return false;
             }
 
-            // Stream download for large files (Requirement 3.3)
             const writeStream = createWriteStream(savePath);
             const readable = Readable.fromWeb(response.body as import('stream/web').ReadableStream);
 
@@ -154,23 +340,18 @@ export class NetworkManager {
     /**
      * Checks if a URL belongs to an internal Hako domain
      * Requirements: 3.6
-     *
-     * @param url - The URL to check
-     * @returns true if URL is from a Hako domain or image domain
      */
     isInternalDomain(url: string): boolean {
         try {
             const urlObj = new URL(url);
             const hostname = urlObj.hostname.toLowerCase();
 
-            // Check against main domains
             for (const domain of this.domains) {
                 if (hostname === domain || hostname.endsWith(`.${domain}`)) {
                     return true;
                 }
             }
 
-            // Check against image domains
             for (const domain of this.imageDomains) {
                 if (hostname === domain || hostname.endsWith(`.${domain}`)) {
                     return true;
@@ -179,7 +360,6 @@ export class NetworkManager {
 
             return false;
         } catch {
-            // Invalid URL
             return false;
         }
     }
@@ -187,11 +367,6 @@ export class NetworkManager {
     /**
      * Attempts to fetch from alternative domains when the primary fails
      * Requirements: 3.2
-     *
-     * @param originalUrl - The original URL that failed
-     * @param headers - Headers to use for the request
-     * @param timeout - Request timeout in milliseconds
-     * @returns Response if successful, null if all domains fail
      */
     private async rotateDomainsAndRetry(
         originalUrl: string,
@@ -201,7 +376,6 @@ export class NetworkManager {
         const urlObj = new URL(originalUrl);
         const originalHost = urlObj.hostname.toLowerCase();
 
-        // Determine which domain list to use
         const isImageUrl = this.imageDomains.some(
             (d) => originalHost === d || originalHost.endsWith(`.${d}`)
         );
@@ -209,7 +383,7 @@ export class NetworkManager {
 
         for (const domain of domainList) {
             if (domain === originalHost) {
-                continue; // Skip the original domain
+                continue;
             }
 
             try {
@@ -251,23 +425,36 @@ export class NetworkManager {
 
     /**
      * Sleep utility function
-     * @param ms - Milliseconds to sleep
      */
     private sleep(ms: number): Promise<void> {
         return new Promise((resolve) => setTimeout(resolve, ms));
     }
 
     /**
-     * Gets the current request count (useful for testing/monitoring)
+     * Gets the current request count
      */
     getRequestCount(): number {
         return this.requestCount;
     }
 
     /**
-     * Resets the request count (useful for testing)
+     * Resets the request count
      */
     resetRequestCount(): void {
         this.requestCount = 0;
+    }
+
+    /**
+     * Checks if proxy is configured
+     */
+    hasProxy(): boolean {
+        return this.proxyPool !== null;
+    }
+
+    /**
+     * Gets the number of proxies in the pool
+     */
+    getProxyCount(): number {
+        return this.proxyPool?.size() ?? 0;
     }
 }

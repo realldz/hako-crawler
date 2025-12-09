@@ -79,6 +79,7 @@ export interface NovelMetadata {
 export interface DownloadOptions {
     baseFolder: string;
     onProgress?: (current: number, total: number) => void;
+    proxy?: ProxyInput;
 }
 
 /**
@@ -116,3 +117,39 @@ export type ParseResult<T> =
  * Progress callback type
  */
 export type ProgressCallback = (current: number, total: number) => void;
+
+/**
+ * Supported proxy protocols
+ */
+export type ProxyProtocol = 'http' | 'https' | 'socks5';
+
+/**
+ * Parsed proxy configuration
+ */
+export interface ProxyConfig {
+    protocol: ProxyProtocol;
+    host: string;
+    port: number;
+    username?: string;
+    password?: string;
+}
+
+/**
+ * Proxy input - can be a single URL or array of URLs
+ */
+export type ProxyInput = string | string[];
+
+/**
+ * Network manager options
+ */
+export interface NetworkOptions {
+    proxy?: ProxyInput;
+    timeout?: number;
+}
+
+/**
+ * Options for parsing a novel
+ */
+export interface ParseOptions {
+    proxy?: ProxyInput;
+}

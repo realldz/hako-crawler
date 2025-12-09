@@ -20,6 +20,12 @@ export type {
     FetchOptions,
     ParseResult,
     ProgressCallback,
+    // Proxy types
+    ProxyConfig,
+    ProxyInput,
+    ProxyProtocol,
+    NetworkOptions,
+    ParseOptions,
 } from './types/index';
 
 // Re-export classes for advanced usage
@@ -39,6 +45,20 @@ export {
     isBookInList,
 } from './utils/books';
 
+// Re-export proxy utilities
+export {
+    isValidProxyUrl,
+    parseProxyUrl,
+    sanitizeForDisplay,
+    buildProxyUrl,
+} from './utils/proxy';
+
+// Re-export ProxyPool for advanced usage
+export { ProxyPool } from './services/proxy-pool';
+
+// Re-export ProxyError for error handling
+export { ProxyError } from './services/network';
+
 // Import for API functions
 import { join } from 'node:path';
 import { readdir } from 'node:fs/promises';
@@ -49,6 +69,7 @@ import type {
     EpubOptions,
     DeconstructOptions,
     ParseResult,
+    ParseOptions,
 } from './types/index';
 import { NetworkManager } from './services/network';
 import { NovelParser } from './services/parser';
@@ -61,20 +82,33 @@ import { formatFilename } from './utils/text';
 /**
  * Parses a novel page from a Hako URL
  * Requirement: 9.1 - Export parseNovel(url) function
+ * Proxy Requirement: 4.2 - Accept proxy configuration through function calls
  * 
  * @param url - The URL of the novel page to parse
+ * @param options - Optional parse configuration including proxy
  * @returns ParseResult containing LightNovel data or error message
  * 
  * @example
  * ```typescript
+ * // Without proxy
  * const result = await parseNovel('https://docln.net/truyen/12345');
- * if (result.success) {
- *   console.log(result.data.name);
- * }
+ * 
+ * // With proxy
+ * const result = await parseNovel('https://docln.net/truyen/12345', {
+ *   proxy: 'http://proxy.example.com:8080'
+ * });
+ * 
+ * // With multiple proxies
+ * const result = await parseNovel('https://docln.net/truyen/12345', {
+ *   proxy: ['http://proxy1.com:8080', 'http://proxy2.com:8080']
+ * });
  * ```
  */
-export async function parseNovel(url: string): Promise<ParseResult<LightNovel>> {
-    const network = new NetworkManager();
+export async function parseNovel(
+    url: string,
+    options?: ParseOptions
+): Promise<ParseResult<LightNovel>> {
+    const network = new NetworkManager({ proxy: options?.proxy });
     const parser = new NovelParser(network);
     return parser.parse(url);
 }
@@ -104,7 +138,7 @@ export async function downloadVolume(
     options?: Partial<DownloadOptions>
 ): Promise<void> {
     const baseFolder = options?.baseFolder || join(PATHS.DATA_DIR, formatFilename(novel.name));
-    const network = new NetworkManager();
+    const network = new NetworkManager({ proxy: options?.proxy });
     const downloader = new NovelDownloader(novel, baseFolder, network);
 
     // Create metadata file first
@@ -135,7 +169,7 @@ export async function downloadNovel(
     options?: Partial<DownloadOptions>
 ): Promise<void> {
     const baseFolder = options?.baseFolder || join(PATHS.DATA_DIR, formatFilename(novel.name));
-    const network = new NetworkManager();
+    const network = new NetworkManager({ proxy: options?.proxy });
     const downloader = new NovelDownloader(novel, baseFolder, network);
 
     // Create metadata file first
