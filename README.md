@@ -15,6 +15,7 @@ A Node.js/Bun tool to download light novels from Hako websites (docln.net, ln.ha
 - **Image & Footnote Handling**: Downloads and embeds images, processes footnotes for clean reading
 - **EPUB Deconstruction**: Extract content from existing EPUBs for editing and rebuilding
 - **Resilient Networking**: Automatic retries with exponential backoff and domain rotation
+- **Proxy Support**: Route requests through HTTP, HTTPS, or SOCKS5 proxies with multi-proxy failover
 
 ## Installation
 
@@ -36,6 +37,15 @@ bun run dev
 
 # With URL argument
 bun run dev "https://docln.net/truyen/12345"
+
+# With proxy
+bun run dev --proxy "http://proxy.example.com:8080"
+
+# With multiple proxies (round-robin with failover)
+bun run dev --proxy "http://proxy1.com:8080,socks5://proxy2.com:1080"
+
+# Verbose mode (shows proxy info)
+bun run dev --proxy "http://proxy.example.com:8080" --verbose
 ```
 
 ### Build and run
@@ -92,26 +102,84 @@ await deconstructEpub('./input/novel.epub', {
 });
 ```
 
+### Using Proxy
+
+```typescript
+import { parseNovel, downloadVolume } from 'hako-crawler';
+
+// Single proxy
+const result = await parseNovel('https://docln.net/truyen/12345', {
+  proxy: 'http://proxy.example.com:8080',
+});
+
+// Multiple proxies with round-robin and failover
+const result = await parseNovel('https://docln.net/truyen/12345', {
+  proxy: [
+    'http://proxy1.example.com:8080',
+    'socks5://proxy2.example.com:1080',
+    'https://user:pass@proxy3.example.com:443',
+  ],
+});
+
+// Download with proxy
+await downloadVolume(result.data, result.data.volumes[0], {
+  proxy: 'socks5://proxy.example.com:1080',
+  onProgress: (current, total) => console.log(`${current}/${total}`),
+});
+```
+
+### Proxy Utilities
+
+```typescript
+import {
+  isValidProxyUrl,
+  parseProxyUrl,
+  sanitizeForDisplay,
+  ProxyPool,
+} from 'hako-crawler';
+
+// Validate proxy URL
+isValidProxyUrl('http://proxy.example.com:8080'); // true
+isValidProxyUrl('invalid-url'); // false
+
+// Parse proxy URL
+const config = parseProxyUrl('socks5://user:pass@proxy.com:1080');
+// { protocol: 'socks5', host: 'proxy.com', port: 1080, username: 'user', password: 'pass' }
+
+// Sanitize for display (removes credentials)
+sanitizeForDisplay('http://user:pass@proxy.com:8080');
+// 'http://proxy.com:8080/'
+
+// Create proxy pool for advanced usage
+const pool = new ProxyPool(['http://p1.com:8080', 'http://p2.com:8080']);
+const proxy = pool.getNextProxy(); // Round-robin selection
+```
+
 ### Exported Functions
 
 | Function                                  | Description                          |
 | ----------------------------------------- | ------------------------------------ |
-| `parseNovel(url)`                         | Parse novel metadata from a Hako URL |
+| `parseNovel(url, options?)`               | Parse novel metadata from a Hako URL |
 | `downloadVolume(novel, volume, options?)` | Download a specific volume           |
 | `downloadNovel(novel, options?)`          | Download all volumes                 |
 | `buildEpub(dataPath, options)`            | Generate EPUB files                  |
 | `deconstructEpub(epubPath, options?)`     | Extract content from EPUB            |
+| `isValidProxyUrl(url)`                    | Validate proxy URL format            |
+| `parseProxyUrl(url)`                      | Parse proxy URL to config object     |
+| `sanitizeForDisplay(url)`                 | Remove credentials from proxy URL    |
 
 ### Exported Classes
 
-| Class               | Description                                |
-| ------------------- | ------------------------------------------ |
-| `NetworkManager`    | HTTP client with retry and domain rotation |
-| `NovelParser`       | HTML parser for Hako pages                 |
-| `NovelDownloader`   | Chapter and image downloader               |
-| `EpubBuilder`       | EPUB file generator                        |
-| `EpubDeconstructor` | EPUB content extractor                     |
-| `ContentProcessor`  | HTML cleaning and footnote processing      |
+| Class               | Description                                     |
+| ------------------- | ----------------------------------------------- |
+| `NetworkManager`    | HTTP client with retry, rotation, and proxy     |
+| `NovelParser`       | HTML parser for Hako pages                      |
+| `NovelDownloader`   | Chapter and image downloader                    |
+| `EpubBuilder`       | EPUB file generator                             |
+| `EpubDeconstructor` | EPUB content extractor                          |
+| `ContentProcessor`  | HTML cleaning and footnote processing           |
+| `ProxyPool`         | Multi-proxy manager with round-robin & failover |
+| `ProxyError`        | Proxy-specific error class                      |
 
 ### Utility Functions
 
