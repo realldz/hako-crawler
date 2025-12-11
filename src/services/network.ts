@@ -15,8 +15,9 @@ import { ProxyPool } from './proxy-pool';
 import type { FetchOptions, NetworkOptions, ProxyConfig } from '../types';
 
 // Import proxy agents
-import { ProxyAgent } from 'undici';
-import { SocksProxyAgent } from 'socks-proxy-agent';
+import { HttpsProxyAgent } from 'https-proxy-agent';
+import { SocksClient } from 'socks';
+import * as tls from 'node:tls';
 
 /**
  * Custom error class for proxy-related errors
@@ -45,7 +46,7 @@ export class NetworkManager {
     private readonly domains: readonly string[];
     private readonly imageDomains: readonly string[];
     private readonly headers: Record<string, string>;
-    private readonly proxyPool: ProxyPool | null = null;
+    private readonly proxyPool: ProxyPool | null;
     private readonly timeout: number;
 
     /**
@@ -63,28 +64,12 @@ export class NetworkManager {
         // Initialize proxy pool if proxy is configured
         if (options?.proxy) {
             this.proxyPool = new ProxyPool(options.proxy);
-        }
-    }
-
-
-    /**
-     * Creates a fetch dispatcher for the given proxy configuration
-     * Requirements: Proxy 2.1, 2.2, 2.3, 3.1, 3.2
-     *
-     * @param proxy - The proxy configuration
-     * @returns A dispatcher for use with fetch
-     */
-    private createProxyDispatcher(proxy: ProxyConfig): ProxyAgent | SocksProxyAgent {
-        const proxyUrl = this.buildProxyUrl(proxy);
-
-        if (proxy.protocol === 'socks5') {
-            // Use socks-proxy-agent for SOCKS5
-            return new SocksProxyAgent(proxyUrl);
+            console.log(`[NetworkManager] Proxy configured: ${this.proxyPool.size()} proxy server(s)`);
         } else {
-            // Use undici ProxyAgent for HTTP/HTTPS
-            return new ProxyAgent(proxyUrl);
+            this.proxyPool = null;
         }
     }
+
 
     /**
      * Builds a proxy URL from ProxyConfig
@@ -122,21 +107,137 @@ export class NetworkManager {
         const timeoutId = setTimeout(() => controller.abort(), timeout);
 
         try {
-            const dispatcher = this.createProxyDispatcher(proxy);
+            const proxyUrl = this.buildProxyUrl(proxy);
 
-            // Use undici's fetch with dispatcher for proxy support
-            const { fetch: undiciFetch } = await import('undici');
 
-            const response = await undiciFetch(url, {
-                headers,
-                signal: controller.signal,
-                dispatcher: dispatcher as any,
-            });
+            if (proxy.protocol === 'socks5') {
+                // Use socks package directly for SOCKS5 (Bun compatible)
+                const parsedUrl = new URL(url);
+                const isHttps = parsedUrl.protocol === 'https:';
+                const targetPort = parseInt(parsedUrl.port) || (isHttps ? 443 : 80);
 
-            clearTimeout(timeoutId);
-            this.requestCount++;
 
-            return response as unknown as Response;
+
+                // Create SOCKS connection
+                const socksOptions = {
+                    proxy: {
+                        host: proxy.host,
+                        port: proxy.port,
+                        type: 5 as const,
+                        ...(proxy.username && proxy.password ? {
+                            userId: proxy.username,
+                            password: proxy.password,
+                        } : {}),
+                    },
+                    command: 'connect' as const,
+                    destination: {
+                        host: parsedUrl.hostname,
+                        port: targetPort,
+                    },
+                    timeout: timeout,
+                };
+
+                const { socket } = await SocksClient.createConnection(socksOptions);
+
+                // For HTTPS, wrap socket with TLS
+                let finalSocket: typeof socket | tls.TLSSocket = socket;
+                if (isHttps) {
+                    finalSocket = tls.connect({
+                        socket: socket,
+                        servername: parsedUrl.hostname,
+                    });
+                    await new Promise<void>((resolve, reject) => {
+                        (finalSocket as tls.TLSSocket).once('secureConnect', resolve);
+                        (finalSocket as tls.TLSSocket).once('error', reject);
+                    });
+                }
+
+                // Build HTTP request
+                const path = parsedUrl.pathname + parsedUrl.search;
+                const headerLines = Object.entries(headers)
+                    .map(([k, v]) => `${k}: ${v}`)
+                    .join('\r\n');
+                const httpRequest = `GET ${path} HTTP/1.1\r\nHost: ${parsedUrl.hostname}\r\n${headerLines}\r\nConnection: close\r\n\r\n`;
+
+                // Send request and read response
+                return new Promise<Response>((resolve, reject) => {
+                    const chunks: Buffer[] = [];
+
+                    finalSocket.on('data', (chunk: Buffer) => chunks.push(chunk));
+                    finalSocket.on('end', () => {
+                        clearTimeout(timeoutId);
+                        this.requestCount++;
+
+                        const rawResponse = Buffer.concat(chunks).toString();
+                        const headerEndIndex = rawResponse.indexOf('\r\n\r\n');
+                        const headerPart = rawResponse.substring(0, headerEndIndex);
+                        const bodyPart = rawResponse.substring(headerEndIndex + 4);
+
+                        // Parse status line
+                        const statusLine = headerPart.split('\r\n')[0];
+                        const statusMatch = statusLine?.match(/HTTP\/\d\.\d (\d+) (.+)/);
+                        const status = statusMatch ? parseInt(statusMatch[1]) : 200;
+                        const statusText = statusMatch ? statusMatch[2] : 'OK';
+
+
+
+                        resolve(new Response(bodyPart, {
+                            status,
+                            statusText,
+                        }));
+                    });
+                    finalSocket.on('error', (err: Error) => {
+                        clearTimeout(timeoutId);
+                        reject(err);
+                    });
+
+                    controller.signal.addEventListener('abort', () => {
+                        finalSocket.destroy();
+                        reject(new Error('Request aborted'));
+                    });
+
+                    finalSocket.write(httpRequest);
+                });
+            } else {
+                // Use https-proxy-agent for HTTP/HTTPS proxy (works with Bun and Node)
+                const agent = new HttpsProxyAgent(proxyUrl);
+
+                const { default: https } = await import('node:https');
+                const { default: http } = await import('node:http');
+
+                return new Promise((resolve, reject) => {
+                    const parsedUrl = new URL(url);
+                    const isHttps = parsedUrl.protocol === 'https:';
+                    const client = isHttps ? https : http;
+
+                    const req = client.request(url, {
+                        method: 'GET',
+                        headers,
+                        agent: agent as any,
+                        signal: controller.signal,
+                    }, (res) => {
+                        const chunks: Buffer[] = [];
+                        res.on('data', (chunk) => chunks.push(chunk));
+                        res.on('end', () => {
+                            clearTimeout(timeoutId);
+                            this.requestCount++;
+                            const body = Buffer.concat(chunks);
+                            resolve(new Response(body, {
+                                status: res.statusCode || 200,
+                                statusText: res.statusMessage || 'OK',
+                                headers: res.headers as any,
+                            }));
+                        });
+                    });
+
+                    req.on('error', (err) => {
+                        clearTimeout(timeoutId);
+                        reject(err);
+                    });
+
+                    req.end();
+                });
+            }
         } catch (error) {
             clearTimeout(timeoutId);
 

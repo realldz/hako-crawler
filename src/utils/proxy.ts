@@ -8,7 +8,7 @@ import type { ProxyConfig, ProxyProtocol } from '../types';
 /**
  * Supported proxy protocols
  */
-const SUPPORTED_PROTOCOLS: ProxyProtocol[] = ['http', 'https', 'socks5'];
+const SUPPORTED_PROTOCOLS: ProxyProtocol[] = ['http', 'socks5'];
 
 /**
  * Validates if a string is a valid proxy URL
@@ -153,8 +153,6 @@ function getDefaultPort(protocol: ProxyProtocol): string {
     switch (protocol) {
         case 'http':
             return '80';
-        case 'https':
-            return '443';
         case 'socks5':
             return '1080';
         default:

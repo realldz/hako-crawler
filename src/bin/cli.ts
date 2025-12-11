@@ -24,7 +24,7 @@ program
             for (const url of urls) {
                 if (!isValidProxyUrl(url)) {
                     console.error(`Invalid proxy URL: ${url}`);
-                    console.error('Supported formats: http://host:port, https://host:port, socks5://host:port');
+                    console.error('Supported formats: http://host:port, socks5://host:port');
                     process.exit(1);
                 }
             }

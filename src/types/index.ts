@@ -121,7 +121,7 @@ export type ProgressCallback = (current: number, total: number) => void;
 /**
  * Supported proxy protocols
  */
-export type ProxyProtocol = 'http' | 'https' | 'socks5';
+export type ProxyProtocol = 'http' | 'socks5';
 
 /**
  * Parsed proxy configuration
