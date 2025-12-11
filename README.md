@@ -204,6 +204,61 @@ project/
 └── books.json               # List of downloaded novels
 ```
 
+## Docker
+
+Run the crawler without installing Bun or Node.js:
+
+### Build the image
+
+```bash
+docker build -t hako-crawler .
+```
+
+### Run with Docker
+
+```bash
+# Interactive mode with mounted volumes
+docker run -it --rm \
+  -v $(pwd)/data:/app/data \
+  -v $(pwd)/input:/app/input \
+  -v $(pwd)/output:/app/output \
+  hako-crawler
+
+# With URL argument
+docker run -it --rm \
+  -v $(pwd)/data:/app/data \
+  hako-crawler "https://docln.net/truyen/12345"
+
+# With proxy
+docker run -it --rm \
+  -v $(pwd)/data:/app/data \
+  hako-crawler --proxy "http://host.docker.internal:8080" "https://docln.net/truyen/12345"
+```
+
+### Windows (PowerShell)
+
+```powershell
+# Interactive mode
+docker run -it --rm `
+  -v ${PWD}/data:/app/data `
+  -v ${PWD}/input:/app/input `
+  -v ${PWD}/output:/app/output `
+  hako-crawler
+
+# With arguments
+docker run -it --rm `
+  -v ${PWD}/data:/app/data `
+  hako-crawler "https://docln.net/truyen/12345"
+```
+
+### Volume Mounts
+
+| Host Path  | Container Path | Description                          |
+| ---------- | -------------- | ------------------------------------ |
+| `./data`   | `/app/data`    | Downloaded novel data (JSON, images) |
+| `./input`  | `/app/input`   | EPUBs for deconstruction             |
+| `./output` | `/app/output`  | Generated EPUB files                 |
+
 ## Development
 
 ```bash

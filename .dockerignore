@@ -1,0 +1,15 @@
+node_modules
+dist
+data
+input
+output
+*.epub
+*.log
+.git
+.gitignore
+.kiro
+*.md
+!README.md
+tests
+vitest.config.ts
+python_legacy
