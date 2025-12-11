@@ -15,7 +15,7 @@ A Node.js/Bun tool to download light novels from Hako websites (docln.net, ln.ha
 - **Image & Footnote Handling**: Downloads and embeds images, processes footnotes for clean reading
 - **EPUB Deconstruction**: Extract content from existing EPUBs for editing and rebuilding
 - **Resilient Networking**: Automatic retries with exponential backoff and domain rotation
-- **Proxy Support**: Route requests through HTTP, HTTPS, or SOCKS5 proxies with multi-proxy failover
+- **Proxy Support**: Route requests through HTTP or SOCKS5 proxies with multi-proxy failover
 
 ## Installation
 
@@ -114,11 +114,7 @@ const result = await parseNovel('https://docln.net/truyen/12345', {
 
 // Multiple proxies with round-robin and failover
 const result = await parseNovel('https://docln.net/truyen/12345', {
-  proxy: [
-    'http://proxy1.example.com:8080',
-    'socks5://proxy2.example.com:1080',
-    'https://user:pass@proxy3.example.com:443',
-  ],
+  proxy: ['http://proxy1.example.com:8080', 'socks5://proxy2.example.com:1080'],
 });
 
 // Download with proxy
