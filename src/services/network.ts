@@ -64,7 +64,6 @@ export class NetworkManager {
         // Initialize proxy pool if proxy is configured
         if (options?.proxy) {
             this.proxyPool = new ProxyPool(options.proxy);
-            console.log(`[NetworkManager] Proxy configured: ${this.proxyPool.size()} proxy server(s)`);
         } else {
             this.proxyPool = null;
         }
