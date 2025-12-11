@@ -15,7 +15,7 @@ import { ProxyPool } from '../../src/services/proxy-pool';
 import type { ProxyProtocol } from '../../src/types';
 
 // Arbitraries for generating test data
-const validProtocol = fc.constantFrom<ProxyProtocol>('http', 'https', 'socks5');
+const validProtocol = fc.constantFrom<ProxyProtocol>('http', 'socks5');
 const invalidProtocol = fc.constantFrom('ftp', 'ws', 'wss', 'tcp', 'udp', 'ssh', 'mailto');
 // Use simple hostnames that are clearly valid (letters only, with optional .com)
 const validHost = fc.constantFrom(
@@ -56,7 +56,7 @@ describe('Proxy URL Validation Property Tests', () => {
     /**
      * **Feature: proxy-support, Property 1: Proxy URL Validation Consistency**
      * For any input string, the proxy validator SHALL correctly identify valid proxy URLs
-     * (matching the format protocol://[user:pass@]host:port where protocol is http, https, or socks5)
+     * (matching the format protocol://[user:pass@]host:port where protocol is http or socks5)
      * and reject all other strings.
      * **Validates: Requirements 1.3, 1.4**
      */
@@ -266,7 +266,7 @@ describe('ProxyPool Property Tests', () => {
                 'http://proxy2.example.com:8080',
                 'http://proxy3.example.com:8080',
                 'socks5://proxy4.example.com:1080',
-                'https://proxy5.example.com:443'
+                'socks5://proxy5.example.com:1080'
             ),
             { minLength: 1, maxLength: 5 }
         ).filter((arr) => new Set(arr).size === arr.length); // Ensure unique proxies
@@ -365,7 +365,7 @@ describe('Proxy Failover Property Tests', () => {
                             'http://proxy2.example.com:8080',
                             'http://proxy3.example.com:8080',
                             'socks5://proxy4.example.com:1080',
-                            'https://proxy5.example.com:443'
+                            'socks5://proxy5.example.com:1080'
                         ),
                         { minLength: 2, maxLength: 5 }
                     ).filter((arr) => new Set(arr).size === arr.length),
